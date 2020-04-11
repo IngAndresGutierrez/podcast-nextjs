@@ -7,9 +7,9 @@ const PodcastList = (props) => {
     <div>
       {podcasts.map((podcast) => (
         <Link href={`/podcast?id=${podcast.id}`} key={podcast.id}>
-          <a className='podcast'>
+          <a className="podcast">
             <h3>{podcast.title}</h3>
-            <div className='meta'>
+            <div className="meta">
               {Math.ceil(podcast.duration / 60)} minutes
             </div>
           </a>

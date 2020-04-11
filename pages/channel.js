@@ -1,19 +1,44 @@
 import 'isomorphic-fetch';
+import React, { useState } from 'react';
+
+import Error from './_error';
 import Layout from '../components/Layout';
 import ChannelGrid from '../components/ChannelGrid';
-import PodcastList from '../components/PodcastList';
+import PodcastListWithClick from '../components/PodcastListWithClick';
+import PodcastPlayer from '../components/PodcastPlayer';
 
 const Channel = (props) => {
-  const { channel, audioClips, series } = props;
+  const { channel, audioClips, series, statusCode } = props;
+  const [podcast, setPodcast] = useState(null);
+
+  const openPodcast = (event, podcast) => {
+    event.preventDefault();
+    setPodcast(podcast);
+  };
+
+  const closePodcast = (event) => {
+    event.preventDefault();
+    setPodcast(null);
+  };
+
+  if (statusCode !== 200) {
+    return <Error statusCode={statusCode} />;
+  }
 
   return (
     <Layout title={channel.title}>
       <div
-        className='banner'
+        className="banner"
         style={{
           backgroundImage: `url(${channel.urls.banner_image.original})`,
         }}
       />
+
+      {podcast && (
+        <div className="modal">
+          <PodcastPlayer clip={podcast} onClose={closePodcast} />
+        </div>
+      )}
 
       <h1>{channel.title}</h1>
 
@@ -25,7 +50,10 @@ const Channel = (props) => {
       )}
 
       <h2>Ultimos Podcasts</h2>
-      <PodcastList podcasts={audioClips} />
+      <PodcastListWithClick
+        onClickPodcast={openPodcast}
+        podcasts={audioClips}
+      />
 
       <style jsx>{`
         .banner {
@@ -45,30 +73,54 @@ const Channel = (props) => {
           font-weight: 600;
           margin: 0;
         }
+
+        .modal {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          z-index: 99999;
+        }
       `}</style>
     </Layout>
   );
 };
 
-Channel.getInitialProps = async ({ query }) => {
+Channel.getInitialProps = async ({ query, res }) => {
   let idChannel = query.id;
 
-  let [reqChannel, reqSeries, reqAudios] = await Promise.all([
-    fetch(`https://api.audioboom.com/channels/${idChannel}`),
-    fetch(`https://api.audioboom.com/channels/${idChannel}/child_channels`),
-    fetch(`https://api.audioboom.com/channels/${idChannel}/audio_clips`),
-  ]);
+  try {
+    let [reqChannel, reqSeries, reqAudios] = await Promise.all([
+      fetch(`https://api.audioboom.com/channels/${idChannel}`),
+      fetch(`https://api.audioboom.com/channels/${idChannel}/child_channels`),
+      fetch(`https://api.audioboom.com/channels/${idChannel}/audio_clips`),
+    ]);
 
-  let dataChannel = await reqChannel.json();
-  let channel = dataChannel.body.channel;
+    if (reqChannel.status >= 404) {
+      res.statusCode = reqChannel.status;
 
-  let dataAudios = await reqAudios.json();
-  let audioClips = dataAudios.body.audio_clips;
+      return {
+        channel: null,
+        audioClips: null,
+        series: null,
+        statusCode: reqChannel.status,
+      };
+    }
 
-  let dataSeries = await reqSeries.json();
-  let series = dataSeries.body.channels;
+    let dataChannel = await reqChannel.json();
+    let channel = dataChannel.body.channel;
 
-  return { channel, audioClips, series };
+    let dataAudios = await reqAudios.json();
+    let audioClips = dataAudios.body.audio_clips;
+
+    let dataSeries = await reqSeries.json();
+    let series = dataSeries.body.channels;
+
+    return { channel, audioClips, series, statusCode: 200 };
+  } catch (error) {
+    return { channel: null, audioClips: null, series: null, statusCode: 503 };
+  }
 };
 
 export default Channel;

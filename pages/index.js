@@ -1,4 +1,6 @@
 import 'isomorphic-fetch';
+import Error from './_error';
+
 import ChannelGrid from '../components/ChannelGrid';
 import Layout from '../components/Layout';
 
@@ -6,7 +8,7 @@ const Index = (props) => {
   const { channels, statusCode } = props;
 
   if (statusCode !== 200) {
-    return <div>Se rompió el server</div>;
+    return <Error statusCode={statusCode} />;
   }
 
   return (
@@ -16,13 +18,14 @@ const Index = (props) => {
   );
 };
 
-Index.getInitialProps = async () => {
+Index.getInitialProps = async ({ res }) => {
   try {
     let req = await fetch('https://api.audioboom.com/channels/recommended');
     let { body: channels } = await req.json();
     return { channels, statusCode: 200 };
   } catch (e) {
-    return { channels: null, statusCode: 500 };
+    res.statusCode = 503;
+    return { channels: null, statusCode: 503 };
   }
 };
 
